@@ -1,0 +1,12 @@
+!!!
+%html
+  %body
+  %h2
+    %a{title:"Reload", href:"/"} Reload
+  %h3
+    %ul.albums
+      - @random_albums.each do |album|
+        %li
+          %div.album{ :id => album.album_id }
+            %a{title:album.title, href:"/add?album_id=#{album.album_id}&token=#{@token}"}
+              ="(#{album.year}) #{album.artist} - #{album.title}"
