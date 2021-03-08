@@ -105,3 +105,11 @@
 	-webkit-line-clamp : 5;
 	height             : calc(1em * 1.4 * 5);
 }
+
+.tile.is-child.card {
+     .card-footer {
+         margin-top: auto;
+    }
+    display: flex;
+    flex-direction: column;
+} 
