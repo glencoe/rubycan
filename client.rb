@@ -32,20 +32,25 @@ class MPDClient
         end
     end
 
-    def print_line
-        puts @socket.gets
-    end
-
     def close
         @socket.close
     end
 
+    def puts content
+        @socket.puts content
+    end
+
+    def gets
+        @socket.gets
+    end
+
     def request content
-      @socket.puts content
+      connect
+      puts content
       last_line = ""
       results = []
       while last_line != "OK\n"
-        last_line = @socket.gets
+        last_line = gets
         if last_line != "OK\n"
           results.push last_line.rstrip.force_encoding('utf-8')
           if last_line.start_with? "ACK"
@@ -54,6 +59,7 @@ class MPDClient
           end
         end
       end
+      close
       results
     end
 
@@ -66,8 +72,8 @@ class MPDClient
        subset = albums.sample(number)
     end
 
-    def get_all_albums
-        raw_query_result = self.list "album group musicbrainz_albumid group albumartist group originaldate"
+    def get_all_albums search_expression = ""
+        raw_query_result = self.list "album" + search_expression + " group musicbrainz_albumid group albumartist group originaldate"
         results = Hash.new
         date = ''
         albumartist = ''

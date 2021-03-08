@@ -1,12 +1,24 @@
 !!!
 %html
+  %link{:rel => 'stylesheet', :type => 'text/css', :media => 'all', :href => '/css/style.min.css'}
   %body
-  %h2
-    %a{title:"Reload", href:"/"} Reload
-  %h3
-    %ul.albums
-      - @random_albums.each do |album|
-        %li
-          %div.album{ :id => album.album_id }
-            %a{title:album.title, href:"/add?album_id=#{album.album_id}&token=#{@token}"}
-              ="(#{album.year}) #{album.artist} - #{album.title}"
+  %a{title:"Reload", href:"/"} Reload
+  %h2.title= @heading
+  %div.tile.is-ancestor.is-vertical
+    - @albums.each_slice(5).to_a.each do |row|
+      %div.tile.is-parent
+        - row.each do |album|
+          %div.tile.is-child.card
+            %div.card-content
+              %p.title.ellipsis.is-ellipsis-2
+                %a{:href => "/show?album_id=#{album.album_id}"}
+                  =album.title
+              %p
+                %a{:href => "/show?artist=#{album.artist}"}
+                  =album.artist
+              %p
+                =album.year
+            %div.card-footer
+              %button.button.is-primary{ :onclick => "fetch(\"/add?album_id=#{album.album_id}\")" } +
+
+
