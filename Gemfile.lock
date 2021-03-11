@@ -5,6 +5,7 @@ GEM
     haml (5.2.1)
       temple (>= 0.8.0)
       tilt
+    multi_json (1.15.0)
     mustermann (1.1.1)
       ruby2_keywords (~> 0.0.1)
     nio4r (2.5.7)
@@ -21,6 +22,12 @@ GEM
       rack (~> 2.2)
       rack-protection (= 2.1.0)
       tilt (~> 2.0)
+    sinatra-contrib (2.1.0)
+      multi_json
+      mustermann (~> 1.0)
+      rack-protection (= 2.1.0)
+      sinatra (= 2.1.0)
+      tilt (~> 2.0)
     temple (0.8.2)
     tilt (2.0.10)
 
@@ -33,6 +40,7 @@ DEPENDENCIES
   rack
   sassc
   sinatra
+  sinatra-contrib
 
 BUNDLED WITH
    2.1.4

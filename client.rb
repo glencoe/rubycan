@@ -2,17 +2,61 @@
 
 require 'socket'
 
-
-class Album
-    attr_accessor :title, :artist, :year, :album_id
-    def initialize title, artist, year, album_id
-        @title = title
-        @artist = artist
-        @year = year
-        @album_id = album_id
+module LibraryEntity
+    def set_tag(tag_symbol, value)
+       tag_symbol = tag_symbol.to_s.downcase.gsub(/-/, "_")
+       self.class.send(:attr_accessor, tag_symbol)
+       send((tag_symbol.to_s + "=").to_sym, value)
     end
 end
 
+class Track
+    include LibraryEntity
+end
+
+
+class Album
+    include LibraryEntity
+    attr_accessor :album, :albumartist, :year, :musicbrainz_albumid, :originaldate, :genre
+    def title= t
+        @album = t
+    end
+
+    def title
+        @album
+    end
+
+    def artist
+        @albumartist
+    end
+
+    def album_id
+        @musicbrainz_albumid
+    end
+
+    def year
+        @originaldate.match(/^\d\d\d\d/)
+    end
+end
+
+class MPDException < StandardError
+    
+end
+
+TAGS = [:AlbumArtist, :Album, :MUSICBRAINZ_ALBUMID,
+	:AlbumArtistSort, :AlbumSort, :OriginalDate,
+	:Title, :Artist, :ArtistSort, :Genre,
+	:Name, :Track, :Disc, :MUSICBRAINZ_ARTISTID,
+	:MUSICBRAINZ_ALBUMARTISTID, :MUSICBRAINZ_RELEASETRACKID,
+	:MUSICBRAINZ_TRACKID, :Label]
+
+def string_to_tag(s)
+    s = s.downcase
+    tag = TAGS.filter do |tag|
+        tag.to_s.downcase == s
+    end
+    tag[0]
+end
 
 class MPDClient
     attr_reader :state
@@ -28,7 +72,7 @@ class MPDClient
         if not initial_response.start_with? "OK"
            @state = "fail"
         else
-            @state = "success"
+           @state = "success"
         end
     end
 
@@ -49,13 +93,16 @@ class MPDClient
       puts content
       last_line = ""
       results = []
-      while last_line != "OK\n"
+      while last_line != "OK\n" and not last_line.start_with?("ACK@")
         last_line = gets
         if last_line != "OK\n"
-          results.push last_line.rstrip.force_encoding('utf-8')
           if last_line.start_with? "ACK"
-            puts last_line
-            break
+            raise MPDException.new("#{last_line.delete_prefix('ACK@')} command: #{content}")
+          else
+            line_values = last_line.rstrip.force_encoding('utf-8').split(":")
+            tag = :"#{line_values[0]}"
+            value = line_values[1..].join(':').rstrip.lstrip
+            results.push({tag => value})
           end
         end
       end
@@ -68,90 +115,50 @@ class MPDClient
     end
 
     def get_random_albums number
-       albums = self.get_all_albums.values
+       albums = self.get_albums_grouped
        subset = albums.sample(number)
     end
 
-    def get_all_albums search_expression = ""
-        raw_query_result = self.list "album" + search_expression + " group musicbrainz_albumid group albumartist group originaldate"
-        results = Hash.new
-        date = ''
-        albumartist = ''
-        albumid = ''
-        for item in raw_query_result
-            if item.start_with? 'AlbumArtist:'
-                album_artist = item.delete_prefix 'AlbumArtist: '
-                album_artist = album_artist.freeze
-            elsif item.start_with? 'Album:'
-                album_title = item.delete_prefix 'Album: ' .freeze
-                results[album_title] = Album.new album_title, album_artist, date, albumid
-            elsif item.start_with? 'OriginalDate'
-                date = item.delete_prefix 'OriginalDate: '
-                date = date.match /^\d\d\d\d/ .to_s.freeze
-            elsif item.start_with? 'MUSICBRAINZ_ALBUMID'
-                albumid = item.delete_prefix 'MUSICBRAINZ_ALBUMID: '
-       		albumid = albumid.freeze
+    def create_match_query tag, value
+       " \"(#{tag} == \\\"#{value}\\\")\""
+    end
+
+    def get_albums_matching tag, value
+        get_albums_grouped(search_expression: create_match_query(tag, value))
+    end
+
+    def status
+        s = request("status")
+        s.reduce({}) { |accumulator, new_value| accumulator.merge(new_value) }
+    end
+
+    def get_tracks_for_album_id(album_id)
+        result = request("find" + create_match_query(:MUSICBRAINZ_ALBUMID.to_s, album_id))
+        result = result.reduce([]) do |tracks, tag|
+            if tag.has_key?(:file)
+                tracks.push(Track.new)
             end
-        end
-        results
-    end
-
-    def add_album album
-       @socket.puts "searchadd \"(musicbrainz_albumid == \\\"#{album.album_id}\\\")\""
-       status = @socket.gets
-       "OK\n" == status or status
-    end
-
-    def add_albums albums
-        albums.each {|album| self.add_album album} 
-    end
-
-end
-
-
-def main_s
-    app = Gtk::Application.new("org.gtk.example", :flags_none)
-    client = MPDClient.new
-    puts "connecting to mpd..."
-    puts client.connect
-    app.signal_connect "activate" do |application|
-        window = Gtk::ApplicationWindow.new(application)
-        window.set_title("Window")
-        window.set_default_size(600, 600)
-
-        button_box = Gtk::FlowBox.new()
-        button_box.set_border_width 5
-        button_box.set_column_spacing 5
-        button_box.set_row_spacing 5
-        button_box.set_min_children_per_line(3)
-        button_box.set_valign(Gtk::Align::START)
-        window.add(button_box)
-        albums = client.get_random_albums 30
-        puts albums.map {|a| a.title}
-        buttons = albums.map {|album| Gtk::Button.new(label: "#{album.artist}\n#{album.title}".force_encoding('UTF-8')) }
-        buttons.zip(albums).each do |button_album_pair|
-            button_album_pair[0].signal_connect "clicked" do |widget|
-                client.add_album button_album_pair[1]
+            tag.each_pair do |key, value|
+                tracks.last.set_tag(key, value)
             end
+            tracks
         end
 
-        buttons.each { |button| button_box.add button }
-
-        window.show_all
+        result
     end
-    puts app.run([$0] + ARGV)
+
+    def get_albums_grouped(groups: [:MUSICBRAINZ_ALBUMID, :AlbumArtist, :Genre, :OriginalDate], search_expression: "")
+        result = request((["list album #{search_expression}"] | groups ).join(" group "))
+        result = result.reduce([]) do | albums, tag |
+            if tag.has_key?(groups[-1])
+                albums = albums.push(Album.new)
+            end
+            albums.last.method("#{tag.keys[0].to_s.downcase}=".to_sym).call tag.values[0]
+            albums
+        end
+    end
+
+    def add_album_by_id album_id
+        request("searchadd" + create_match_query(:MUSICBRAINZ_ALBUMID.to_s, album_id))
+    end
 end
-
-
-def add_random_albums
-    client = MPDClient.new
-    client.connect
-    puts client.state
-    values = client.get_random_albums 30
-    values.each_index {|index| puts "[#{index}] (#{values[index].year}) #{values[index].artist} - #{values[index].title}" }
-    selection = STDIN.gets
-    selection = selection.split(',').map(&:strip).map(&:to_i).map {|index| values[index] }
-    client.add_albums selection
-    client.close
-end
-

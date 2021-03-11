@@ -11,14 +11,14 @@
           %div.tile.is-child.card
             %div.card-content
               %p.title.ellipsis.is-ellipsis-2
-                %a{:href => "/show?album_id=#{album.album_id}"}
+                %a{:href => "/album?album_id=#{album.album_id}"}
                   =album.title
               %p
-                %a{:href => "/show?artist=#{album.artist}"}
+                %a{:href => "/artist?name=#{album.albumartist}"}
                   =album.artist
               %p
                 =album.year
             %div.card-footer
-              %button.button.is-primary{ :onclick => "fetch(\"/add?album_id=#{album.album_id}\")" } +
+              %button.button.is-primary{ :onclick => "fetch(\"/add_album?id=#{album.album_id}\")" } +
 
 

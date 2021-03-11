@@ -1,0 +1,14 @@
+!!!
+%html
+  %meta{:name => "viewport", :content => "width=device-width, initial-scale=1"}
+  %link{:rel => 'stylesheet', :type => 'text/css', :media => 'all', :href => '/css/style.min.css'}
+  %body
+  %a{title: "Home", href:"/"} Home
+  %table.table
+    - @tracks.each do |track|
+      %tr
+        %td=track.title
+        %td=track.track
+        %td
+          %a{title: "Artist", href:"/artist?name=#{track.artist}"}= track.artist
+        %td=track.album

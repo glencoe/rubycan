@@ -1,12 +1,13 @@
 require 'sinatra'
+require 'sinatra/reloader'
 require './client'
 
-client = MPDClient.new
-puts client.connect
+
 set :port, 9090
 
 get '/' do
-  albums = client.get_all_albums
+  client = MPDClient.new
+  albums = client.get_albums_grouped
   if params['count']
     count = params['count'].to_i
   else
@@ -18,28 +19,35 @@ get '/' do
 end
 
 get '/index' do
+  client = MPDClient.new
   @token = params['token']
   indices = @token.split("-")
-  albums = client.get_all_albums.values
+  albums = client.get_albums_grouped
   @albums = indices.map { |i| albums[i.to_i(16)] }
   @heading = "Random"
   haml :index
 end
 
-get '/add' do
-  album_id = params['album_id']
-  client.request "searchadd \"(MUSICBRAINZ_ALBUMID == \\\"#{album_id}\\\")\""
+get '/add_album' do
+  client = MPDClient.new
+  album_id = params['id']
+  client.add_album_by_id album_id
 end
 
-get '/show' do
-  artist = params['artist']
-  album_id = params['album_id']
-  if artist then
-    results = client.get_all_albums(" \"(albumartist == \\\"#{artist}\\\")\"").values
-  end
+get '/artist' do
+  client = MPDClient.new
+  artist = params['name']
+  results = client.get_albums_matching('albumartist', artist)
   @albums = results
   @heading = artist
   haml :index
+end
+
+get '/album' do
+    client = MPDClient.new
+    album_id = params['album_id']
+    @tracks = client.get_tracks_for_album_id(album_id)
+    haml :album
 end
 
 get '/css/style.min.css' do
